@@ -13,11 +13,13 @@ object Conf {
 
 object Main {
   // If the file is on the game path, will return Some(file), otherwise nothing
-  private def getGameName(path: String): Option[String] =
-    Option(new File(path).getParent()).flatMap { parent =>
-      if (parent.equals(Conf.GAME_ROOT)) Some(path)
+  private def getGameName(path: String): Option[String] = {
+    val file = new File(path)
+    Option(file.getParent()).flatMap { parent =>
+      if (parent.equals(Conf.GAME_ROOT)) Some(file.getName())
       else getGameName(parent)
     }
+  }
 
   def main(args: Array[String]): Unit = {
     val ACCESS_TOKEN = Option(System.getenv("RAILS_POLL_ACCESS_TOKEN")).getOrElse {
