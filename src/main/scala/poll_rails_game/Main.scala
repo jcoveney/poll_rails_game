@@ -2,13 +2,27 @@ package poll_rails_game
 
 import java.io.File
 
-object Conf {
+object GameWatchConf {
   val GAME_ROOT = "/poll_rails_game"
 
   //TODO the value should probably be a case class
   val games = Map(
-    "train game example" -> ("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q")
+    "train game example" -> GameWatchConf("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q")
   )
+}
+case class GameWatchConf(email: String, gameName: String) {
+  //TODO does this need to be pulled out?
+  //TODO is there a way to make this not rely on them donig stuff, and instead more data in data out?
+  // This needs to run the hacked rails to save screenshots to the given directory
+  // It also needs to send the email
+  def processEvent(md: ChangeMetadata, screenshotDir: String): Unit =
+    md match {
+      case fmd: FileMD =>
+        val file = fmd.pathLower.getOrElse { throw new IllegalArgumentException(s"Shouldn't be possible for a watched event not to have a path: $md")}
+        // Run the hacked rails
+        RailsBridge.run(file, screenshotDir)
+      case _ =>
+    }
 }
 
 object Main {
@@ -16,7 +30,7 @@ object Main {
   private def getGameName(path: String): Option[String] = {
     val file = new File(path)
     Option(file.getParent()).flatMap { parent =>
-      if (parent.equals(Conf.GAME_ROOT)) Some(file.getName())
+      if (parent.equals(GameWatchConf.GAME_ROOT)) Some(file.getName())
       else getGameName(parent)
     }
   }
@@ -28,13 +42,13 @@ object Main {
       throw new IllegalArgumentException("need to set RAILS_POLL_ACCESS_TOKEN environment variable")
     }
 
-    Dropbox.longpoll(Conf.GAME_ROOT, ACCESS_TOKEN) { changes =>
-      val watchedGames = Conf.games.keys.toSet
-      changes.filter { change =>
+    Dropbox.longpoll(GameWatchConf.GAME_ROOT, ACCESS_TOKEN) { changes =>
+      val watchedGames = GameWatchConf.games.keys.toSet
+      val watchedChanges = changes.filter { change =>
         val isWatched = change.pathLower.flatMap { getGameName(_) }.filter { watchedGames.contains(_) }.nonEmpty
         //TODO logging
-        if (isWatched) println(s"polled a change on a watched path: $change")
-        else println(s"polled a change on an unwatched path: $change")
+        if (isWatched) println(s"WATCHED: $change")
+        else println(s"UNWATCHED: $change")
         isWatched
       }
     }
