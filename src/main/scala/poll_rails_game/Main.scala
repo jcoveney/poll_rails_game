@@ -8,8 +8,10 @@ object Main {
       throw new IllegalArgumentException("need to set RAILS_POLL_ACCESS_TOKEN environment variable")
     }
 
-    Dropbox.longpoll("", ACCESS_TOKEN) { changes =>
+    Dropbox.longpoll("/poll_rails_game", ACCESS_TOKEN) { changes =>
       changes.foreach { println(_) }
     }
+
+    // First, need to get every
   }
 }
