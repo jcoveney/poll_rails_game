@@ -7,7 +7,7 @@ object Conf {
 
   //TODO the value should probably be a case class
   val games = Map(
-    "train_game_example" -> ("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q")
+    "train game example" -> ("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q")
   )
 }
 
