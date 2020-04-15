@@ -69,7 +69,9 @@ object ChangeMetadata {
       } else throw new IllegalArgumentException(metadata.toString)
     }.toList
 }
-sealed trait ChangeMetadata
+sealed trait ChangeMetadata {
+  def pathLower: Option[String]
+}
 case class DeletedMD(
   name: String,
   pathLower: Option[String],
