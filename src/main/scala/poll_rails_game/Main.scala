@@ -15,7 +15,7 @@ object Main {
   // If the file is on the game path, will return Some(file), otherwise nothing
   private def getGameName(path: String): Option[String] =
     Option(new File(path).getParent()).flatMap { parent =>
-      if (parent.equals(Conf.GAME_ROOT)) Some(parent)
+      if (parent.equals(Conf.GAME_ROOT)) Some(path)
       else getGameName(parent)
     }
 
