@@ -122,17 +122,22 @@ object Dropbox {
   private val LONGPOLL_CONFIG = STANDARD_CONFIG.copy().withReadTimeout(5, TimeUnit.MINUTES).build()
   private val LONGPOLL_TIMEOUT_SECS = TimeUnit.MINUTES.toSeconds(2)
 
-  def makeClient(config: StandardHttpRequestor.Config, accessToken: String): DbxClientV2 = {
+  val ACCESS_TOKEN = System.getenv("RAILS_POLL_ACCESS_TOKEN")
+
+  def verifyEnvironment(): List[String] =
+    if (Option(ACCESS_TOKEN).isEmpty) List("Must set RAILS_POLL_ACCESS_TOKEN") else List()
+
+  def makeClient(config: StandardHttpRequestor.Config): DbxClientV2 = {
     val clientUserAgentId = "poll_rails_game"
     val requestor = new StandardHttpRequestor(config)
     val requestConfig = DbxRequestConfig.newBuilder(clientUserAgentId).withHttpRequestor(requestor).build()
-    return new DbxClientV2(requestConfig, accessToken);
+    return new DbxClientV2(requestConfig, ACCESS_TOKEN);
   }
 
   //TODO consider converting ListFolderResult into something nicer
-  def longpoll(path: String, accessToken: String)(fn: List[ChangeMetadata] => Unit): Unit = {
-    val standardClient = makeClient(STANDARD_CONFIG, accessToken)
-    val longpollClient = makeClient(LONGPOLL_CONFIG, accessToken)
+  def longpoll(path: String)(fn: List[ChangeMetadata] => Unit): Unit = {
+    val standardClient = makeClient(STANDARD_CONFIG)
+    val longpollClient = makeClient(LONGPOLL_CONFIG)
 
     val standardCursor = getLatestCursor(standardClient, path)
     //TODO logging
@@ -169,8 +174,8 @@ object Dropbox {
       .getCursor()
 
   // This is just as a quick way to check that everything is working
-  def checkInfo(accessToken: String): Unit = {
-    val client = makeClient(STANDARD_CONFIG, accessToken)
+  def checkInfo(): Unit = {
+    val client = makeClient(STANDARD_CONFIG)
     val account = client.users().getCurrentAccount()
     System.out.println(account.getName().getDisplayName())
   }

@@ -5,6 +5,7 @@ import java.io.File
 object GameWatchConf {
   val GAME_ROOT = "/poll_rails_game"
 
+  //TODO move this configuration to a file that is itself watched, making updating very easy
   //TODO the value should probably be a case class
   val games = Map(
     "train game example" -> GameWatchConf("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q")
@@ -15,13 +16,18 @@ case class GameWatchConf(email: String, gameName: String) {
   //TODO is there a way to make this not rely on them donig stuff, and instead more data in data out?
   // This needs to run the hacked rails to save screenshots to the given directory
   // It also needs to send the email
-  def processEvent(md: ChangeMetadata, screenshotDir: String): Unit =
+  def processEvent(md: ChangeMetadata): Option[EmailContent] =
     md match {
       case fmd: FileMD =>
         val file = fmd.pathLower.getOrElse { throw new IllegalArgumentException(s"Shouldn't be possible for a watched event not to have a path: $md")}
         // Run the hacked rails
-        RailsBridge.run(file, screenshotDir)
-      case _ =>
+        //TODO this needs to give us the location of the files, as well as the information for the title (eg OR 3.2 - C&O Jco)
+        //RailsBridge.run(file, screenshotDir)
+        // Send email...for testing, can get email infra working first
+        //TODO this from should probably be configurable! really need to get a better configuration
+        //  and key management story
+        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $file", file, List()))
+      case _ => None
     }
 }
 
@@ -36,20 +42,29 @@ object Main {
   }
 
   def main(args: Array[String]): Unit = {
-    val ACCESS_TOKEN = Option(System.getenv("RAILS_POLL_ACCESS_TOKEN")).getOrElse {
-      //TODO proper logging
-      //TODO use proper argument handling and pass as an argument?
-      throw new IllegalArgumentException("need to set RAILS_POLL_ACCESS_TOKEN environment variable")
-    }
+    //TODO need to do something with the result if there is one!
+    val errors = Email.verifyEnvironment() ++ RailsBridge.verifyEnvironment() ++ Dropbox.verifyEnvironment()
+    errors.foreach { println(_) }
+    if (errors.nonEmpty) System.exit(1)
 
-    Dropbox.longpoll(GameWatchConf.GAME_ROOT, ACCESS_TOKEN) { changes =>
-      val watchedGames = GameWatchConf.games.keys.toSet
-      val watchedChanges = changes.filter { change =>
-        val isWatched = change.pathLower.flatMap { getGameName(_) }.filter { watchedGames.contains(_) }.nonEmpty
-        //TODO logging
-        if (isWatched) println(s"WATCHED: $change")
-        else println(s"UNWATCHED: $change")
-        isWatched
+    //TODO seems weird to pass dropbox an access token it itself has access to, but I think that is an
+    //  artifact on the fact that I haven't decided how to best manage the enviornmental dependencies
+    Dropbox.longpoll(GameWatchConf.GAME_ROOT) { changes =>
+      changes.foreach { change =>
+        change.pathLower.flatMap { getGameName(_) }.flatMap { GameWatchConf.games.get(_) } match {
+          //TODO logging
+          case Some(processor) =>
+            println(s"WATCHED: $change\nPROCESSOR: $processor")
+            processor.processEvent(change).foreach { email =>
+              val response = email.makeRequest()
+              println("Email sent")
+              println(response.getStatusCode())
+              println(response.getBody())
+              println(response.getHeaders())
+            }
+          case None =>
+            println(s"UNWATCHED: $change")
+        }
       }
     }
 
@@ -63,6 +78,6 @@ object Main {
     // TO BEGIN WITH: punt on the database. It will only send emails if it is running (to start).
     //   It will send an email for every new file created on its watch
     //   (though could perhaps flag if a new file is back in time or something)
-
+    //TODO idea! though I don't know if it is overkill. It's own config (and any other commands) can be done through the filewatcher. Eg if it sees a new config file, it will load it. May be overkill though
   }
 }
