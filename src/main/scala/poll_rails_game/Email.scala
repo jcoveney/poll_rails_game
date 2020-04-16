@@ -1,6 +1,8 @@
 package poll_rails_game
 
-import com.sendgrid.{Attachments, Content, Email=>SGEmail, Mail, Method, Response, Request, SendGrid}
+import com.sendgrid.helpers.mail.Mail
+import com.sendgrid.helpers.mail.objects.{Attachments, Content, Email=>SGEmail}
+import com.sendgrid.{Method, Response, Request, SendGrid}
 
 import org.apache.commons.io.IOUtils
 
@@ -31,15 +33,14 @@ case class EmailContent(from_address: String, to_address: String, title: String,
       new Content("text/plain", body))
 
     images.foreach { case (title, image) =>
-      val fileData = IOUtils.toByteArray(new FileInputStream(image))
-      val attachment = new Attachments()
-      attachment.setContent(new String(fileData, 0, fileData.length, "UTF-8"))
-      attachment.setType("image/png")
-      attachment.setFilename(new File(image).getName())
-      attachment.setDisposition("inline")
-      //TODO couldn't find an example of what the content id should be
-      attachment.setContentId(title)
-      mail.addAttachments(attachment)
+      mail.addAttachments(
+        new Attachments.Builder(new File(image).getName(), new FileInputStream(image))
+          .withType("image/png")
+          .withDisposition("inline")
+          //TODO couldn't find an example of what the content id should be
+          .withContentId(title)
+          .build()
+      )
     }
 
     val sg = new SendGrid(Email.SENDGRID_API_KEY)
