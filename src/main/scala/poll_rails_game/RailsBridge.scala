@@ -1,14 +1,15 @@
 package poll_rails_game
 
 object RailsBridge {
-  def verifyEnvironment(): List[String]= {
-    //TODO this needs to make sure that the required files are there eg the jar we need to run
-    List()
-  }
+  val RAILS_JAR_LOCATION = System.getenv("RAILS_JAR_LOCATION")
 
-  def run(file: String, screenshotDir: String): Unit = {
+  //TODO should probably verify that it actually exists
+  def verifyEnvironment(): List[String] =
+    if (Option(RAILS_JAR_LOCATION).isEmpty) List("Must set RAILS_JAR_LOCATION") else List()
 
-  }
+  //TODO should return an error code etc
+  def run(file: String, screenshotDir: String): Unit =
+    os.proc("java", "-cp", RAILS_JAR_LOCATION, "net.sf.rails.util.PrintGame", screenshotDir, file).call()
 }
 
 //TODO seems more ideal to break positionTitle down into OR, round, player, railroad (if applicable)

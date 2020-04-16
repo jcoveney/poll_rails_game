@@ -1,6 +1,7 @@
 package poll_rails_game
 
 import java.io.File
+import java.nio.file.Files
 
 object GameWatchConf {
   val GAME_ROOT = "/poll_rails_game"
@@ -20,13 +21,16 @@ case class GameWatchConf(email: String, gameName: String) {
     md match {
       case fmd: FileMD =>
         val file = fmd.pathLower.getOrElse { throw new IllegalArgumentException(s"Shouldn't be possible for a watched event not to have a path: $md")}
+        val tempDir = Files.createTempDirectory("some-prefix").toFile
+        RailsBridge.run(file, tempDir.getAbsolutePath())
+        val outputMap = List("status_window", "or_window", "stock_market").map { n => (n -> new File(tempDir, s"$n.png").getAbsolutePath())}.toMap
         // Run the hacked rails
         //TODO this needs to give us the location of the files, as well as the information for the title (eg OR 3.2 - C&O Jco)
         //RailsBridge.run(file, screenshotDir)
         // Send email...for testing, can get email infra working first
         //TODO this from should probably be configurable! really need to get a better configuration
         //  and key management story
-        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $file", file, Map("stock_market" -> "stock_market.png")))
+        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $file", file, outputMap))
       case _ => None
     }
 }
