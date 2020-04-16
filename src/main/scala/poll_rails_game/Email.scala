@@ -1,6 +1,11 @@
 package poll_rails_game
 
-import com.sendgrid.{Content, Email=>SGEmail, Mail, Method, Response, Request, SendGrid}
+import com.sendgrid.{Attachments, Content, Email=>SGEmail, Mail, Method, Response, Request, SendGrid}
+
+import org.apache.commons.io.IOUtils
+
+import java.io.File
+import java.io.FileInputStream
 
 object Email {
   //TODO the fact that these various objects all do this is telling. I wonder if a macro woudl apply here...
@@ -17,13 +22,26 @@ object Email {
   }
 }
 
-case class EmailContent(from_address: String, to_address: String, title: String, body: String, images: List[String]) {
+case class EmailContent(from_address: String, to_address: String, title: String, body: String, images: Map[String, String]) {
   def makeRequest(): Response = {
     val mail = new Mail(
       new SGEmail(from_address),
       title,
       new SGEmail(to_address),
       new Content("text/plain", body))
+
+    images.foreach { case (title, image) =>
+      val fileData = IOUtils.toByteArray(new FileInputStream(image))
+      val attachment = new Attachments()
+      attachment.setContent(new String(fileData, 0, fileData.length, "UTF-8"))
+      attachment.setType("image/png")
+      attachment.setFilename(new File(image).getName())
+      attachment.setDisposition("inline")
+      //TODO couldn't find an example of what the content id should be
+      attachment.setContentId(title)
+      mail.addAttachments(attachment)
+    }
+
     val sg = new SendGrid(Email.SENDGRID_API_KEY)
     val request = new Request()
     request.setMethod(Method.POST)

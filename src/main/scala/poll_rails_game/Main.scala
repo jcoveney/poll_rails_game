@@ -26,7 +26,7 @@ case class GameWatchConf(email: String, gameName: String) {
         // Send email...for testing, can get email infra working first
         //TODO this from should probably be configurable! really need to get a better configuration
         //  and key management story
-        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $file", file, List()))
+        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $file", file, Map("stock_market" -> "stock_market.png")))
       case _ => None
     }
 }
