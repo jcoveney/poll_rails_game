@@ -34,7 +34,9 @@ case class GameWatchConf(email: String, gameName: String) {
         //TODO this from should probably be configurable! really need to get a better configuration
         //  and key management story
         Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $localGameFile", localGameFile, outputMap))
-      case _ => None
+      case _ =>
+        println("Only watching FileMetadata events. Ignoring")
+        None
     }
 }
 
