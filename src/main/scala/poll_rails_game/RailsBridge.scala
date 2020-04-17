@@ -8,8 +8,8 @@ object RailsBridge {
     if (Option(RAILS_JAR_LOCATION).isEmpty) List("Must set RAILS_JAR_LOCATION") else List()
 
   //TODO should return an error code etc
-  def run(file: String, screenshotDir: String): Unit =
-    os.proc("java", "-cp", RAILS_JAR_LOCATION, "net.sf.rails.util.PrintGame", screenshotDir, file).call()
+  def run(gameSave: String, screenshotDir: String): Unit =
+    os.proc("java", "-cp", RAILS_JAR_LOCATION, "net.sf.rails.util.PrintGame", screenshotDir, gameSave).call()
 }
 
 //TODO seems more ideal to break positionTitle down into OR, round, player, railroad (if applicable)

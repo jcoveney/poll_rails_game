@@ -18,6 +18,8 @@ import com.dropbox.core.v2.files.MediaInfo
 import com.dropbox.core.v2.files.SymlinkInfo
 import com.dropbox.core.v2.fileproperties.PropertyGroup
 
+import java.io.{File, FileOutputStream}
+import java.nio.file.Files
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
@@ -131,7 +133,7 @@ object Dropbox {
     val clientUserAgentId = "poll_rails_game"
     val requestor = new StandardHttpRequestor(config)
     val requestConfig = DbxRequestConfig.newBuilder(clientUserAgentId).withHttpRequestor(requestor).build()
-    return new DbxClientV2(requestConfig, ACCESS_TOKEN);
+    new DbxClientV2(requestConfig, ACCESS_TOKEN);
   }
 
   //TODO consider converting ListFolderResult into something nicer
@@ -172,6 +174,15 @@ object Dropbox {
       .withRecursive(true)
       .start()
       .getCursor()
+
+  // Given a dropbox file, copies it locally
+  def saveFileToTmp(dbxFile: String, dbxRev: String, _localDir: Option[String] = None): String = {
+    val localDir = _localDir.getOrElse { Files.createTempDirectory("poll_rails_game").toFile().getAbsolutePath() }
+    val dbxClient = makeClient(STANDARD_CONFIG)
+    val output = new File(localDir, new File(dbxFile).getName())
+    dbxClient.files().download(dbxFile, dbxRev).download(new FileOutputStream(output))
+    output.getAbsolutePath()
+  }
 
   // This is just as a quick way to check that everything is working
   def checkInfo(): Unit = {
