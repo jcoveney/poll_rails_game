@@ -3,13 +3,16 @@ package poll_rails_game
 import java.io.File
 import java.nio.file.Files
 
+import scala.io.Source
+
 object GameWatchConf {
   val GAME_ROOT = "/poll_rails_game"
 
   //TODO move this configuration to a file that is itself watched, making updating very easy
   //TODO the value should probably be a case class
   val games = Map(
-    "train game example" -> GameWatchConf("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q")
+    "train game example" -> GameWatchConf("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q"),
+    "2020gamep-rtjm" -> GameWatchConf("poll_rails_game_testing@googlegroups.com", "2020 1830 Game P")
   )
 }
 case class GameWatchConf(email: String, gameName: String) {
@@ -33,7 +36,8 @@ case class GameWatchConf(email: String, gameName: String) {
         // Send email...for testing, can get email infra working first
         //TODO this from should probably be configurable! really need to get a better configuration
         //  and key management story
-        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $localGameFile", localGameFile, outputMap))
+        val roundInfo = Source.fromFile(new File(tmpDir, "round_facade.txt")).getLines().next();
+        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", localGameFile, outputMap))
       case _ =>
         println("Only watching FileMetadata events. Ignoring")
         None
