@@ -36,8 +36,10 @@ case class GameWatchConf(email: String, gameName: String) {
         // Send email...for testing, can get email infra working first
         //TODO this from should probably be configurable! really need to get a better configuration
         //  and key management story
-        val roundInfo = Source.fromFile(new File(tmpDir, "round_facade.txt")).getLines().next();
-        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", localGameFile, outputMap))
+        val roundInfo = Source.fromFile(new File(tmpDir, "round_facade.txt")).getLines().next()
+        val actions = Source.fromFile(new File(tmpDir, "game_report.txt")).getLines().toList
+        val body = (List(dropboxGameFile, "") ++ actions.reverse).mkString("\n")
+        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
       case _ =>
         println("Only watching FileMetadata events. Ignoring")
         None

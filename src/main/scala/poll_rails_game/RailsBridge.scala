@@ -11,7 +11,12 @@ object RailsBridge {
 
   //TODO should return an error code etc
   def run(gameSave: String, screenshotDir: String): Unit =
-    os.proc("java", "--module-path", PATH_TO_FX, "--add-modules", "javafx.controls,javafx.swing", "-cp", RAILS_JAR_LOCATION, "net.sf.rails.util.PrintGame", screenshotDir, gameSave).call()
+    os.proc(
+      "java",
+      "--module-path", PATH_TO_FX, "--add-modules", "javafx.controls,javafx.swing",
+      "-cp", RAILS_JAR_LOCATION,
+      "net.sf.rails.util.PrintGame", screenshotDir, gameSave
+    ).call(stdout = os.Inherit, stderr = os.Inherit)
 }
 
 //TODO seems more ideal to break positionTitle down into OR, round, player, railroad (if applicable)
