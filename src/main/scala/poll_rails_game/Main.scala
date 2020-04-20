@@ -8,12 +8,11 @@ import scala.io.Source
 object GameWatchConf {
   val GAME_ROOT = "/poll_rails_game"
 
-  //TODO move this configuration to a file that is itself watched, making updating very easy
-  //TODO the value should probably be a case class
-  val games = Map(
-    "train game example" -> GameWatchConf("poll_rails_game_testing@googlegroups.com", "2020 Test Game Q"),
-    "2020gamep-rtjm" -> GameWatchConf("poll_rails_game_testing@googlegroups.com", "2020 1830 Game P")
-  )
+  //TODO can change things so that if this file is updated it will download the updated version!
+  def getConfFromDropbox(): Map[String, GameWatchConf] = {
+    val localFile = Dropbox.downloadFile(new File(GAME_ROOT, "conf.json").getAbsolutePath())
+    ujson.read(os.read(os.Path(localFile))).obj.mapValues { v => GameWatchConf(v("email").str, v("gameName").str) }.toMap
+  }
 }
 case class GameWatchConf(email: String, gameName: String) {
   //TODO does this need to be pulled out?
@@ -63,11 +62,14 @@ object Main {
     errors.foreach { println(_) }
     if (errors.nonEmpty) System.exit(1)
 
-    //TODO seems weird to pass dropbox an access token it itself has access to, but I think that is an
-    //  artifact on the fact that I haven't decided how to best manage the enviornmental dependencies
+    //TODO should print this out
+    val games = GameWatchConf.getConfFromDropbox()
+
+    //TODO if we do want to support uploading a new conf.json, then we need the longpoll function to support
+    //  passing state through...state monad?
     Dropbox.longpoll(GameWatchConf.GAME_ROOT) { changes =>
       changes.foreach { change =>
-        change.pathLower.flatMap { getGameName(_) }.flatMap { GameWatchConf.games.get(_) } match {
+        change.pathLower.flatMap { getGameName(_) }.flatMap { games.get(_) } match {
           //TODO logging
           case Some(processor) =>
             println(s"WATCHED: $change\nPROCESSOR: $processor")
