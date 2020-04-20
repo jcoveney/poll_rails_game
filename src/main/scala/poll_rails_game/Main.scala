@@ -29,7 +29,7 @@ case class GameWatchConf(email: String, gameName: String) {
         println(s"Temp directory for rails files: $tmpDir")
         val localGameFile = Dropbox.saveFileToTmp(dropboxGameFile, fmd.rev, Some(tmpDir))
         RailsBridge.run(localGameFile, tmpDir)
-        val outputMap = List("status_window", "or_window", "stock_market").map { n => (n -> new File(tmpDir, s"$n.png").getAbsolutePath()) }.toMap
+        val outputMap = List("status_window.png", "or_window.png", "stock_market.png", "game_report.txt").map { n => (n -> new File(tmpDir, n).getAbsolutePath()) }.toMap
         // Run the hacked rails
         //TODO this needs to give us the location of the files, as well as the information for the title (eg OR 3.2 - C&O Jco)
         //RailsBridge.run(file, screenshotDir)
@@ -38,7 +38,8 @@ case class GameWatchConf(email: String, gameName: String) {
         //  and key management story
         val roundInfo = Source.fromFile(new File(tmpDir, "round_facade.txt")).getLines().next()
         val actions = Source.fromFile(new File(tmpDir, "game_report.txt")).getLines().toList
-        val body = (List(dropboxGameFile, "") ++ actions.reverse).mkString("\n")
+        //TODO how many actions? I think ideal would be "number of players*2", but then we need to know number of players
+        val body = (List(dropboxGameFile, "", "most recent", "=================") ++ actions.reverse.take(8)).mkString("\n")
         Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
       case _ =>
         println("Only watching FileMetadata events. Ignoring")
