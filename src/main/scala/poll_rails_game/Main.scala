@@ -7,10 +7,14 @@ import scala.io.Source
 
 object GameWatchConf {
   val GAME_ROOT = "/poll_rails_game"
+  val CONF_FILE = new File(GAME_ROOT, "conf.json").getAbsolutePath()
+
+  // Leaves space to change to a real class later
+  type Conf = Map[String, GameWatchConf]
 
   //TODO can change things so that if this file is updated it will download the updated version!
-  def getConfFromDropbox(): Map[String, GameWatchConf] = {
-    val localFile = Dropbox.downloadFile(new File(GAME_ROOT, "conf.json").getAbsolutePath())
+  def getConfFromDropbox(rev: Option[String]): Conf = {
+    val localFile = Dropbox.downloadFile(CONF_FILE, rev)
     ujson.read(os.read(os.Path(localFile))).obj.view.mapValues { v => GameWatchConf(v("email").str, v("gameName").str) }.toMap
   }
 }
@@ -39,7 +43,7 @@ case class GameWatchConf(email: String, gameName: String) {
         val actions = Source.fromFile(new File(tmpDir, "game_report.txt")).getLines().toList
         //TODO how many actions? I think ideal would be "number of players*2", but then we need to know number of players
         // also, certain actions generate more than one line! So I think I need to handle that on the rails side
-        val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====",) ++ actions.takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
+        val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====") ++ actions.takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
         Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
       case _ =>
         println("Only watching FileMetadata events. Ignoring")
@@ -64,28 +68,43 @@ object Main {
     if (errors.nonEmpty) System.exit(1)
 
     //TODO should print this out
-    val initialGames = GameWatchConf.getConfFromDropbox()
+    val initialGameConf = GameWatchConf.getConfFromDropbox(None)
+    println("Initial configuration loaded")
+    println(initialGameConf)
 
     //TODO if we do want to support uploading a new conf.json, then we need the longpoll function to support
     //  passing state through...state monad?
-    Dropbox.longpoll(GameWatchConf.GAME_ROOT, initialGames) { (games, changes) =>
-      changes.foreach { change =>
-        change.pathLower.flatMap { getGameName(_) }.flatMap { games.get(_) } match {
-          //TODO logging
-          case Some(processor) =>
-            println(s"WATCHED: $change\nPROCESSOR: $processor")
-            processor.processEvent(change).foreach { email =>
-              val response = email.makeRequest()
-              println("Email sent")
-              println(response.getStatusCode())
-              println(response.getBody())
-              println(response.getHeaders())
+    Dropbox.longpoll(GameWatchConf.GAME_ROOT, initialGameConf) { (gameConf, changes) =>
+      changes.foldLeft(gameConf) { (curGameConf, change) =>
+        change match {
+          case confChange: FileMD if confChange.pathLower.map { _ == GameWatchConf.CONF_FILE }.getOrElse(false) =>
+            println("Change to configuration detected. Loading new configuration")
+            // We do the rev b/c if the conf suddenly changes a bunch, we may have a bunch of changes
+            // to process and I would rather process them in order rather than pull the most recent which
+            // which could get confusing! Maybe that doesn't matter though!
+            val newGameConf = GameWatchConf.getConfFromDropbox(Some(confChange.rev))
+            println("New configuration loaded")
+            println(newGameConf)
+            newGameConf
+          case otherChange =>
+            otherChange.pathLower.flatMap { getGameName(_) }.flatMap { curGameConf.get(_) } match {
+              //TODO logging
+              case Some(processor) =>
+                println(s"WATCHED: $change\nPROCESSOR: $processor")
+                processor.processEvent(change).foreach { email =>
+                  val response = email.makeRequest()
+                  println("Email sent")
+                  println(response.getStatusCode())
+                  println(response.getBody())
+                  println(response.getHeaders())
+                }
+              case None =>
+                println(s"UNWATCHED: $change")
             }
-          case None =>
-            println(s"UNWATCHED: $change")
+            curGameConf
         }
+
       }
-      games
     }
 
     // First, for every game I'm watching, need to get the files that already exist (for now punt on this)

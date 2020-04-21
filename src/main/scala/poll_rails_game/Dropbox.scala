@@ -184,9 +184,10 @@ object Dropbox {
     output.getAbsolutePath()
   }
 
-  def downloadFile(file: String): String = {
+  def downloadFile(file: String, rev: Option[String]): String = {
     val local = new File(Files.createTempDirectory("poll_rails_game").toFile(), new File(file).getName()).getAbsolutePath()
-    val downloader = makeClient(STANDARD_CONFIG).files().download(file)
+    val files = makeClient(STANDARD_CONFIG).files()
+    val downloader = rev.map { files.download(file, _) }.getOrElse { files.download(file) }
     downloader.download(new FileOutputStream(local))
     downloader.close()
     local
