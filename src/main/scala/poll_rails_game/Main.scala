@@ -53,7 +53,7 @@ case class GameWatchConf(email: String, gameName: String) {
             val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====") ++ actions.takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
             Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
           } else {
-            print("Detected error when running rails. Investigate!")
+            println("Detected error when running rails. Investigate!")
             None
           }
         }
@@ -103,13 +103,7 @@ object Main {
               //TODO logging
               case Some(processor) =>
                 println(s"WATCHED: $change\nPROCESSOR: $processor")
-                processor.processEvent(change).foreach { email =>
-                  val response = email.makeRequest()
-                  println("Email sent")
-                  println(response.getStatusCode())
-                  println(response.getBody())
-                  println(response.getHeaders())
-                }
+                processor.processEvent(change).foreach { _.makeRequest() }
               case None =>
                 println(s"UNWATCHED: $change")
             }

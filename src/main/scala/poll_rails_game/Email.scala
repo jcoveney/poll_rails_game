@@ -39,13 +39,19 @@ case class EmailContent(from_address: String, to_address: String, title: String,
       )
     }
 
-    val sg = new SendGrid(Email.SENDGRID_API_KEY)
     val request = new Request()
     request.setMethod(Method.POST)
     request.setEndpoint("mail/send")
     request.setBody(mail.build())
     //TODO can we print the object that we are sending?
-    println("Attempting to send email")
-    sg.api(request)
+    println(s"Attempting to send email generated from: $this")
+    val response = new SendGrid(Email.SENDGRID_API_KEY).api(request)
+    //TODO it is kind of gross to do this here and yet...don't see the need to make it prettier yet.
+    //  if I use it more, definitely should clean up logging
+    println("Email sent")
+    println(response.getStatusCode())
+    println(response.getBody())
+    println(response.getHeaders())
+    response
   }
 }
