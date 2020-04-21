@@ -19,34 +19,46 @@ object GameWatchConf {
   }
 }
 case class GameWatchConf(email: String, gameName: String) {
+  private val railsRegex = raw"[^.].*\.rails".r
+  private def isValidRailsFile(file: String): Boolean =
+    railsRegex matches new File(file).getName()
+
   //TODO does this need to be pulled out?
   //TODO is there a way to make this not rely on them donig stuff, and instead more data in data out?
   // This needs to run the hacked rails to save screenshots to the given directory
   // It also needs to send the email
   def processEvent(md: ChangeMetadata): Option[EmailContent] =
     md match {
-      case fmd: FileMD =>
-        val dropboxGameFile = fmd.pathLower.getOrElse { throw new IllegalArgumentException(s"Shouldn't be possible for a watched event not to have a path: $md")}
-        //TODO have to use the dropbox API to get the file and save it somewhere local, b/c it's just in dropbox atm
-        val tmpDir = Files.createTempDirectory("poll_rails_game").toFile().getAbsolutePath()
-        println(s"Temp directory for rails files: $tmpDir")
-        val localGameFile = Dropbox.saveFileToTmp(dropboxGameFile, fmd.rev, Some(tmpDir))
-        RailsBridge.run(localGameFile, tmpDir)
-        val outputMap = List("status_window.png", "or_window.png", "stock_market.png", "game_report.txt").map { n => (n -> new File(tmpDir, n).getAbsolutePath()) }.toMap
-        // Run the hacked rails
-        //TODO this needs to give us the location of the files, as well as the information for the title (eg OR 3.2 - C&O Jco)
-        //RailsBridge.run(file, screenshotDir)
-        // Send email...for testing, can get email infra working first
-        //TODO this from should probably be configurable! really need to get a better configuration
-        //  and key management story
-        val roundInfo = Source.fromFile(new File(tmpDir, "round_facade.txt")).getLines().next()
-        val actions = Source.fromFile(new File(tmpDir, "game_report.txt")).getLines().toList
-        //TODO how many actions? I think ideal would be "number of players*2", but then we need to know number of players
-        // also, certain actions generate more than one line! So I think I need to handle that on the rails side
-        val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====") ++ actions.takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
-        Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
+      case fmd: FileMD if fmd.pathLower.fold(false){ isValidRailsFile(_) } =>
+        //TODO if somehow pathLower isn't set, we need an alert, because that is weird. In general, need alerting infrastructure
+        //  for serious issues
+        fmd.pathLower.flatMap { dropboxGameFile =>
+          //TODO have to use the dropbox API to get the file and save it somewhere local, b/c it's just in dropbox atm
+          val tmpDir = Files.createTempDirectory("poll_rails_game").toFile().getAbsolutePath()
+          println(s"Temp directory for rails files: $tmpDir")
+          val localGameFile = Dropbox.saveFileToTmp(dropboxGameFile, fmd.rev, Some(tmpDir))
+          //TODO make sure that this is robust to the case where the rails bridge fails, especially as we seek to make things more robust
+          if (RailsBridge.run(localGameFile, tmpDir)) {
+            val outputMap = List("status_window.png", "or_window.png", "stock_market.png", "game_report.txt").map { n => (n -> new File(tmpDir, n).getAbsolutePath()) }.toMap
+            // Run the hacked rails
+            //TODO this needs to give us the location of the files, as well as the information for the title (eg OR 3.2 - C&O Jco)
+            //RailsBridge.run(file, screenshotDir)
+            // Send email...for testing, can get email infra working first
+            //TODO this from should probably be configurable! really need to get a better configuration
+            //  and key management story
+            val roundInfo = Source.fromFile(new File(tmpDir, "round_facade.txt")).getLines().next()
+            val actions = Source.fromFile(new File(tmpDir, "game_report.txt")).getLines().toList
+            //TODO how many actions? I think ideal would be "number of players*2", but then we need to know number of players
+            // also, certain actions generate more than one line! So I think I need to handle that on the rails side
+            val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====") ++ actions.takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
+            Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
+          } else {
+            print("Detected error when running rails. Investigate!")
+            None
+          }
+        }
       case _ =>
-        println("Only watching FileMetadata events. Ignoring")
+        println("Only watching FileMetadata events on valid rails files. Ignoring")
         None
     }
 }
@@ -77,7 +89,7 @@ object Main {
     Dropbox.longpoll(GameWatchConf.GAME_ROOT, initialGameConf) { (gameConf, changes) =>
       changes.foldLeft(gameConf) { (curGameConf, change) =>
         change match {
-          case confChange: FileMD if confChange.pathLower.map { _ == GameWatchConf.CONF_FILE }.getOrElse(false) =>
+          case confChange: FileMD if confChange.pathLower.fold(false) { _ == GameWatchConf.CONF_FILE } =>
             println("Change to configuration detected. Loading new configuration")
             // We do the rev b/c if the conf suddenly changes a bunch, we may have a bunch of changes
             // to process and I would rather process them in order rather than pull the most recent which

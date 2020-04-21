@@ -18,10 +18,6 @@ object Email {
 
   def verifyEnvironment(): List[String] =
     if (Option(SENDGRID_API_KEY).isEmpty) List("Must set SENDGRID_API_KEY") else List()
-
-  def sendEmail(content: EmailContent): Unit = {
-
-  }
 }
 
 case class EmailContent(from_address: String, to_address: String, title: String, body: String, images: Map[String, String]) {
