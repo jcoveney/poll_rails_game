@@ -11,7 +11,7 @@ object GameWatchConf {
   //TODO can change things so that if this file is updated it will download the updated version!
   def getConfFromDropbox(): Map[String, GameWatchConf] = {
     val localFile = Dropbox.downloadFile(new File(GAME_ROOT, "conf.json").getAbsolutePath())
-    ujson.read(os.read(os.Path(localFile))).obj.mapValues { v => GameWatchConf(v("email").str, v("gameName").str) }.toMap
+    ujson.read(os.read(os.Path(localFile))).obj.view.mapValues { v => GameWatchConf(v("email").str, v("gameName").str) }.toMap
   }
 }
 case class GameWatchConf(email: String, gameName: String) {
@@ -38,7 +38,8 @@ case class GameWatchConf(email: String, gameName: String) {
         val roundInfo = Source.fromFile(new File(tmpDir, "round_facade.txt")).getLines().next()
         val actions = Source.fromFile(new File(tmpDir, "game_report.txt")).getLines().toList
         //TODO how many actions? I think ideal would be "number of players*2", but then we need to know number of players
-        val body = (List(dropboxGameFile, "", "most recent", "=================") ++ actions.reverse.take(8)).mkString("\n")
+        // also, certain actions generate more than one line! So I think I need to handle that on the rails side
+        val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====",) ++ actions.takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
         Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
       case _ =>
         println("Only watching FileMetadata events. Ignoring")
@@ -63,11 +64,11 @@ object Main {
     if (errors.nonEmpty) System.exit(1)
 
     //TODO should print this out
-    val games = GameWatchConf.getConfFromDropbox()
+    val initialGames = GameWatchConf.getConfFromDropbox()
 
     //TODO if we do want to support uploading a new conf.json, then we need the longpoll function to support
     //  passing state through...state monad?
-    Dropbox.longpoll(GameWatchConf.GAME_ROOT) { changes =>
+    Dropbox.longpoll(GameWatchConf.GAME_ROOT, initialGames) { (games, changes) =>
       changes.foreach { change =>
         change.pathLower.flatMap { getGameName(_) }.flatMap { games.get(_) } match {
           //TODO logging
@@ -84,6 +85,7 @@ object Main {
             println(s"UNWATCHED: $change")
         }
       }
+      games
     }
 
     // First, for every game I'm watching, need to get the files that already exist (for now punt on this)

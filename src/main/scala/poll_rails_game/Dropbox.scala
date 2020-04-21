@@ -137,7 +137,7 @@ object Dropbox {
   }
 
   //TODO consider converting ListFolderResult into something nicer
-  def longpoll(path: String)(fn: List[ChangeMetadata] => Unit): Unit = {
+  def longpoll[State](path: String, initialState: State)(fn: (State, List[ChangeMetadata]) => State): State = {
     val standardClient = makeClient(STANDARD_CONFIG)
     val longpollClient = makeClient(LONGPOLL_CONFIG)
 
@@ -145,25 +145,25 @@ object Dropbox {
     //TODO logging
     println("Longpolling for changes... press CTRL-C to exit.")
     @tailrec
-    def go(goCursor: String): Unit = {
+    def go(goState: State, goCursor: String): State = {
       val longpollResult = longpollClient.files().listFolderLongpoll(goCursor, LONGPOLL_TIMEOUT_SECS)
-      val newGoCursor = if (longpollResult.getChanges()) {
+      val (newGoState, newGoCursor) = if (longpollResult.getChanges()) {
         @tailrec
-        def processChanges(processChangesCursor: String): String = {
+        def processChanges(processChangesState: State, processChangesCursor: String): (State, String) = {
           val standardResult = standardClient.files().listFolderContinue(processChangesCursor)
-          fn(ChangeMetadata(standardResult))
+          val newProcessChangeState = fn(processChangesState, ChangeMetadata(standardResult))
           val newProcessChangesCursor = standardResult.getCursor()
-          if (standardResult.getHasMore()) processChanges(newProcessChangesCursor) else newProcessChangesCursor
+          if (standardResult.getHasMore()) processChanges(newProcessChangeState, newProcessChangesCursor) else (newProcessChangeState, newProcessChangesCursor)
         }
-        processChanges(goCursor)
-      } else goCursor
+        processChanges(goState, goCursor)
+      } else (goState, goCursor)
       Option(longpollResult.getBackoff()).foreach { backoff =>
         println(s"backing off for ${backoff}s")
         Thread.sleep(TimeUnit.SECONDS.toMillis(backoff))
       }
-      go(newGoCursor)
+      go(newGoState, newGoCursor)
     }
-    go(standardCursor)
+    go(initialState, standardCursor)
   }
 
   private def getLatestCursor(dbxClient: DbxClientV2, path: String): String =
