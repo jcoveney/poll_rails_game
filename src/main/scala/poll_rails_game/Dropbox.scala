@@ -25,51 +25,55 @@ import java.util.concurrent.TimeUnit
 
 object ChangeMetadata {
   def apply(lfr: ListFolderResult): List[ChangeMetadata] =
-    lfr.getEntries().asScala.map { metadata =>
-      if (metadata.isInstanceOf[DeletedMetadata]) {
-        val md = metadata.asInstanceOf[DeletedMetadata]
-        DeletedMD(
-          md.getName(),
-          Option(md.getPathLower()),
-          Option(md.getPathDisplay()),
-          Option(md.getParentSharedFolderId)
-        )
-      } else if (metadata.isInstanceOf[FileMetadata]) {
-        val md = metadata.asInstanceOf[FileMetadata]
-        FileMD(
-          md.getName(),
-          md.getId(),
-          md.getClientModified(),
-          md.getServerModified(),
-          md.getRev(),
-          md.getSize(),
-          Option(md.getPathLower()),
-          Option(md.getPathDisplay()),
-          Option(md.getParentSharedFolderId()),
-          Option(md.getMediaInfo()),
-          Option(md.getSymlinkInfo()),
-          Option(md.getSharingInfo()),
-          md.getIsDownloadable(),
-          Option(md.getExportInfo()),
-          Option(md.getPropertyGroups()).map{_.asScala.toList}.getOrElse(List()),
-          Option(md.getHasExplicitSharedMembers()),
-          Option(md.getContentHash()),
-          Option(md.getFileLockInfo)
-        )
-      } else if (metadata.isInstanceOf[FolderMetadata]) {
-        val md = metadata.asInstanceOf[FolderMetadata]
-        FolderMD(
-          md.getName(),
-          md.getId(),
-          Option(md.getPathLower()),
-          Option(md.getPathDisplay()),
-          Option(md.getParentSharedFolderId()),
-          Option(md.getSharedFolderId()),
-          Option(md.getSharingInfo()),
-          Option(md.getPropertyGroups()).map{_.asScala.toList}.getOrElse(List())
-        )
-      } else throw new IllegalArgumentException(metadata.toString)
-    }.toList
+    lfr
+      .getEntries()
+      .asScala
+      .map { metadata =>
+        if (metadata.isInstanceOf[DeletedMetadata]) {
+          val md = metadata.asInstanceOf[DeletedMetadata]
+          DeletedMD(
+            md.getName(),
+            Option(md.getPathLower()),
+            Option(md.getPathDisplay()),
+            Option(md.getParentSharedFolderId)
+          )
+        } else if (metadata.isInstanceOf[FileMetadata]) {
+          val md = metadata.asInstanceOf[FileMetadata]
+          FileMD(
+            md.getName(),
+            md.getId(),
+            md.getClientModified(),
+            md.getServerModified(),
+            md.getRev(),
+            md.getSize(),
+            Option(md.getPathLower()),
+            Option(md.getPathDisplay()),
+            Option(md.getParentSharedFolderId()),
+            Option(md.getMediaInfo()),
+            Option(md.getSymlinkInfo()),
+            Option(md.getSharingInfo()),
+            md.getIsDownloadable(),
+            Option(md.getExportInfo()),
+            Option(md.getPropertyGroups()).map { _.asScala.toList }.getOrElse(List()),
+            Option(md.getHasExplicitSharedMembers()),
+            Option(md.getContentHash()),
+            Option(md.getFileLockInfo)
+          )
+        } else if (metadata.isInstanceOf[FolderMetadata]) {
+          val md = metadata.asInstanceOf[FolderMetadata]
+          FolderMD(
+            md.getName(),
+            md.getId(),
+            Option(md.getPathLower()),
+            Option(md.getPathDisplay()),
+            Option(md.getParentSharedFolderId()),
+            Option(md.getSharedFolderId()),
+            Option(md.getSharingInfo()),
+            Option(md.getPropertyGroups()).map { _.asScala.toList }.getOrElse(List())
+          )
+        } else throw new IllegalArgumentException(metadata.toString)
+      }
+      .toList
 }
 sealed trait ChangeMetadata {
   def pathLower: Option[String]
@@ -153,7 +157,8 @@ object Dropbox {
           val standardResult = standardClient.files().listFolderContinue(processChangesCursor)
           val newProcessChangeState = fn(processChangesState, ChangeMetadata(standardResult))
           val newProcessChangesCursor = standardResult.getCursor()
-          if (standardResult.getHasMore()) processChanges(newProcessChangeState, newProcessChangesCursor) else (newProcessChangeState, newProcessChangesCursor)
+          if (standardResult.getHasMore()) processChanges(newProcessChangeState, newProcessChangesCursor)
+          else (newProcessChangeState, newProcessChangesCursor)
         }
         processChanges(goState, goCursor)
       } else (goState, goCursor)
@@ -167,7 +172,8 @@ object Dropbox {
   }
 
   private def getLatestCursor(dbxClient: DbxClientV2, path: String): String =
-    dbxClient.files()
+    dbxClient
+      .files()
       .listFolderGetLatestCursorBuilder(path)
       .withIncludeDeleted(true)
       .withIncludeMediaInfo(false)
@@ -185,7 +191,8 @@ object Dropbox {
   }
 
   def downloadFile(file: String, rev: Option[String]): String = {
-    val local = new File(Files.createTempDirectory("poll_rails_game").toFile(), new File(file).getName()).getAbsolutePath()
+    val local =
+      new File(Files.createTempDirectory("poll_rails_game").toFile(), new File(file).getName()).getAbsolutePath()
     val files = makeClient(STANDARD_CONFIG).files()
     val downloader = rev.map { files.download(file, _) }.getOrElse { files.download(file) }
     downloader.download(new FileOutputStream(local))

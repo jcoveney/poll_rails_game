@@ -1,10 +1,8 @@
 package poll_rails_game
 
 import com.sendgrid.helpers.mail.Mail
-import com.sendgrid.helpers.mail.objects.{Attachments, Content, Email=>SGEmail}
-import com.sendgrid.{Method, Response, Request, SendGrid}
-
-import org.apache.commons.io.IOUtils
+import com.sendgrid.helpers.mail.objects.{Attachments, Content, Email => SGEmail}
+import com.sendgrid.{Method, Request, Response, SendGrid}
 
 import java.io.File
 import java.io.FileInputStream
@@ -20,23 +18,26 @@ object Email {
     if (Option(SENDGRID_API_KEY).isEmpty) List("Must set SENDGRID_API_KEY") else List()
 }
 
-case class EmailContent(from_address: String, to_address: String, title: String, body: String, images: Map[String, String]) {
+case class EmailContent(
+  from_address: String,
+  to_address: String,
+  title: String,
+  body: String,
+  images: Map[String, String]
+) {
   def makeRequest(): Response = {
-    val mail = new Mail(
-      new SGEmail(from_address),
-      title,
-      new SGEmail(to_address),
-      new Content("text/plain", body))
+    val mail = new Mail(new SGEmail(from_address), title, new SGEmail(to_address), new Content("text/plain", body))
 
-    images.foreach { case (title, image) =>
-      mail.addAttachments(
-        new Attachments.Builder(new File(image).getName(), new FileInputStream(image))
-          .withType("image/png")
-          .withDisposition("inline")
-          //TODO couldn't find an example of what the content id should be
-          .withContentId(title)
-          .build()
-      )
+    images.foreach {
+      case (title, image) =>
+        mail.addAttachments(
+          new Attachments.Builder(new File(image).getName(), new FileInputStream(image))
+            .withType("image/png")
+            .withDisposition("inline")
+            //TODO couldn't find an example of what the content id should be
+            .withContentId(title)
+            .build()
+        )
     }
 
     val request = new Request()

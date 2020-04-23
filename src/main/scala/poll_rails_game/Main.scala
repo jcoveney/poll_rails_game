@@ -15,13 +15,22 @@ object GameWatchConf {
   //TODO can change things so that if this file is updated it will download the updated version!
   def getConfFromDropbox(rev: Option[String]): Conf = {
     val localFile = Dropbox.downloadFile(CONF_FILE, rev)
-    ujson.read(os.read(os.Path(localFile))).obj.view.mapValues { v => GameWatchConf(v("email").str, v("gameName").str) }.toMap
+    ujson
+      .read(os.read(os.Path(localFile)))
+      .obj
+      .view
+      .mapValues { v => GameWatchConf(v("email").str, v("gameName").str) }
+      .toMap
   }
 }
 case class GameWatchConf(email: String, gameName: String) {
+  // This is necessary to avoid the case where the files get archived, for example, and the processing restarts
+  private def isValidRailsLocation(file: String): Boolean =
+    new File(file).toPath.getNameCount() == 3
+
   private val railsRegex = raw"[^.].*\.rails".r
   private def isValidRailsFile(file: String): Boolean =
-    railsRegex matches new File(file).getName()
+    railsRegex.matches(new File(file).getName())
 
   //TODO does this need to be pulled out?
   //TODO is there a way to make this not rely on them donig stuff, and instead more data in data out?
@@ -29,7 +38,7 @@ case class GameWatchConf(email: String, gameName: String) {
   // It also needs to send the email
   def processEvent(md: ChangeMetadata): Option[EmailContent] =
     md match {
-      case fmd: FileMD if fmd.pathLower.fold(false){ isValidRailsFile(_) } =>
+      case fmd: FileMD if fmd.pathLower.fold(false) { file => isValidRailsFile(file) && isValidRailsLocation(file) } =>
         //TODO if somehow pathLower isn't set, we need an alert, because that is weird. In general, need alerting infrastructure
         //  for serious issues
         fmd.pathLower.flatMap { dropboxGameFile =>
@@ -39,7 +48,9 @@ case class GameWatchConf(email: String, gameName: String) {
           val localGameFile = Dropbox.saveFileToTmp(dropboxGameFile, fmd.rev, Some(tmpDir))
           //TODO make sure that this is robust to the case where the rails bridge fails, especially as we seek to make things more robust
           if (RailsBridge.run(localGameFile, tmpDir)) {
-            val outputMap = List("status_window.png", "or_window.png", "stock_market.png", "game_report.txt").map { n => (n -> new File(tmpDir, n).getAbsolutePath()) }.toMap
+            val outputMap = List("status_window.png", "or_window.png", "stock_market.png", "game_report.txt").map { n =>
+              (n -> new File(tmpDir, n).getAbsolutePath())
+            }.toMap
             // Run the hacked rails
             //TODO this needs to give us the location of the files, as well as the information for the title (eg OR 3.2 - C&O Jco)
             //RailsBridge.run(file, screenshotDir)
@@ -50,7 +61,8 @@ case class GameWatchConf(email: String, gameName: String) {
             val actions = Source.fromFile(new File(tmpDir, "game_report.txt")).getLines().toList
             //TODO how many actions? I think ideal would be "number of players*2", but then we need to know number of players
             // also, certain actions generate more than one line! So I think I need to handle that on the rails side
-            val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====") ++ actions.takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
+            val body = (List(dropboxGameFile, "", "==== actions are descending (as in rails) ====") ++ actions
+              .takeRight(16) ++ List("========== most recent action ===========")).mkString("\n")
             Some(EmailContent("jcoveney+poll_rails_game@gmail.com", email, s"$gameName - $roundInfo", body, outputMap))
           } else {
             println("Detected error when running rails. Investigate!")
