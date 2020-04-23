@@ -1,11 +1,16 @@
 package poll_rails_game
 
-import com.sendgrid.helpers.mail.Mail
-import com.sendgrid.helpers.mail.objects.{Attachments, Content, Email => SGEmail}
-import com.sendgrid.{Method, Request, Response, SendGrid}
-
 import java.io.File
 import java.io.FileInputStream
+
+import com.sendgrid.Method
+import com.sendgrid.Request
+import com.sendgrid.Response
+import com.sendgrid.SendGrid
+import com.sendgrid.helpers.mail.Mail
+import com.sendgrid.helpers.mail.objects.Attachments
+import com.sendgrid.helpers.mail.objects.Content
+import com.sendgrid.helpers.mail.objects.{Email => SGEmail}
 
 object Email {
   //TODO the fact that these various objects all do this is telling. I wonder if a macro woudl apply here...

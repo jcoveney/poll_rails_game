@@ -1,27 +1,29 @@
 package poll_rails_game
 
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.Files
+import java.util.Date
+import java.util.concurrent.TimeUnit
+
 import scala.jdk.CollectionConverters._
-import annotation.tailrec
 
 import com.dropbox.core.DbxRequestConfig
 import com.dropbox.core.http.StandardHttpRequestor
 import com.dropbox.core.v2.DbxClientV2
+import com.dropbox.core.v2.fileproperties.PropertyGroup
 import com.dropbox.core.v2.files.DeletedMetadata
 import com.dropbox.core.v2.files.ExportInfo
 import com.dropbox.core.v2.files.FileLockMetadata
 import com.dropbox.core.v2.files.FileMetadata
+import com.dropbox.core.v2.files.FileSharingInfo
 import com.dropbox.core.v2.files.FolderMetadata
 import com.dropbox.core.v2.files.FolderSharingInfo
-import com.dropbox.core.v2.files.FileSharingInfo
 import com.dropbox.core.v2.files.ListFolderResult
 import com.dropbox.core.v2.files.MediaInfo
 import com.dropbox.core.v2.files.SymlinkInfo
-import com.dropbox.core.v2.fileproperties.PropertyGroup
 
-import java.io.{File, FileOutputStream}
-import java.nio.file.Files
-import java.util.Date
-import java.util.concurrent.TimeUnit
+import annotation.tailrec
 
 object ChangeMetadata {
   def apply(lfr: ListFolderResult): List[ChangeMetadata] =

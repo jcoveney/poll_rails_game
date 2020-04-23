@@ -6,7 +6,7 @@ semanticdbVersion := scalafixSemanticdb.revision // use Scalafix compatible vers
 
 scalacOptions ++= Seq("-Ywarn-unused")
 
-scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.2.1"
+ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.2.1"
 
 /*
 OrganizeImports {
